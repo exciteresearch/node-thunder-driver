@@ -23,20 +23,22 @@
     }
   };
 
-  var _ = require('underscore'), usb = require('node-usb/usb.js');
+  var _ = require('underscore'), usb = require('usb/usb.js');
 
-  var launcher = usb.find_by_vid_and_pid(DEVICE.ID.VENDOR, DEVICE.ID.PRODUCT)[0];
+  var launcher = usb.findByIds(DEVICE.ID.VENDOR, DEVICE.ID.PRODUCT);
 
-  if (!launcher) {
+  if (launcher === undefined) {
     throw 'Launcher not found - make sure your Thunder Missile Launcher is plugged in to a USB port';
   }
+
+  launcher.open();
 
   var launcherInterface = launcher.interfaces[0];
   if (launcherInterface.isKernelDriverActive()) {
     launcherInterface.detachKernelDriver();
   }
   launcherInterface.claim();
-  process.on('exit', launcherInterface.release);
+  process.on('exit', exit);
 
   function signal(cmd, duration, callback) {
     launcher.controlTransfer(0x21, 0x09, 0x0, 0x0, new Buffer([0x02, cmd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
@@ -52,6 +54,13 @@
     return function () {
       callback(p1, p2);
     };
+  }
+
+  function exit() {
+    launcherInterface.release(function () {
+      launcherInterface.attachkernalDriver();
+      launcher.close();
+    });
   }
 
   var controller = {};
